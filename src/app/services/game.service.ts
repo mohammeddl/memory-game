@@ -9,13 +9,41 @@ export interface GameState {
   isPlaying: boolean;
   isShowingSequence: boolean;
   gameOver: boolean;
+  displayTime: number;
+  availableColors: string[];
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class GameService {
-  private colors: string[] = ['red', 'blue', 'green', 'yellow'];
+  private allColors: string[] = [
+    '#FF0000', // Rouge vif
+    '#0000FF', // Bleu
+    '#00FF00', // Vert vif
+    '#FFD700', // Or
+    '#FF1493', // Rose foncé
+    '#00FFFF', // Cyan
+    '#FF4500', // Orange rouge
+    '#8A2BE2', // Bleu violet
+    '#32CD32', // Vert lime
+    '#FF69B4', // Rose clair
+    '#4B0082', // Indigo
+    '#00FF7F', // Vert printemps
+    '#FF8C00', // Orange foncé
+    '#9400D3', // Violet foncé
+    '#7CFC00', // Vert pelouse
+    '#FF1744', // Rouge corail
+    '#1E88E5', // Bleu océan
+    '#76FF03', // Vert citron
+    '#FFB300', // Ambre
+    '#E040FB', // Violet clair
+    '#00BFA5', // Turquoise
+    '#F50057', // Rose magenta
+    '#2979FF', // Bleu brillant
+    '#C51162', // Rose profond
+  ];
+
   private initialState: GameState = {
     sequence: [],
     playerSequence: [],
@@ -23,13 +51,17 @@ export class GameService {
     level: 1,
     isPlaying: false,
     isShowingSequence: false,
-    gameOver: false
+    gameOver: false,
+    displayTime: 15000,
+    availableColors: [],
   };
 
-  private gameState = new BehaviorSubject<GameState>({...this.initialState});
+  private gameState = new BehaviorSubject<GameState>({ ...this.initialState });
   gameState$ = this.gameState.asObservable();
+  private sequenceTimeout: any;
+  private highlightTimeout: any;
 
-  constructor() { }
+  constructor() {}
 
   private get currentState(): GameState {
     return this.gameState.getValue();
@@ -38,50 +70,66 @@ export class GameService {
   private updateState(newState: Partial<GameState>) {
     this.gameState.next({
       ...this.currentState,
-      ...newState
+      ...newState,
     });
+  }
+
+  private getColorsForLevel(level: number): string[] {
+    const numberOfColors = Math.min(level * 2, this.allColors.length);
+    return this.allColors.slice(0, numberOfColors);
   }
 
   startGame() {
+    if (this.sequenceTimeout) clearTimeout(this.sequenceTimeout);
+    if (this.highlightTimeout) clearTimeout(this.highlightTimeout);
+
+    const initialColors = this.getColorsForLevel(1);
+    const initialSequence = this.generateSequence(2, initialColors);
+
     this.updateState({
       ...this.initialState,
       isPlaying: true,
-      sequence: this.generateSequence(2) // Start with 2 colors
+      sequence: initialSequence,
+      level: 1,
+      availableColors: initialColors,
     });
+
     this.showSequence();
   }
 
-  generateSequence(length: number): string[] {
+  generateSequence(length: number, availableColors: string[]): string[] {
     const sequence: string[] = [];
     for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * this.colors.length);
-      sequence.push(this.colors[randomIndex]);
+      const randomIndex = Math.floor(Math.random() * availableColors.length);
+      sequence.push(availableColors[randomIndex]);
     }
     return sequence;
-  }
-
-  addColor() {
-    const newSequence = [...this.currentState.sequence];
-    const randomIndex = Math.floor(Math.random() * this.colors.length);
-    newSequence.push(this.colors[randomIndex]);
-    this.updateState({ sequence: newSequence });
   }
 
   async showSequence() {
     this.updateState({ isShowingSequence: true, playerSequence: [] });
     
     for (const color of this.currentState.sequence) {
-      await this.highlightColor(color);
+      await new Promise(resolve => {
+        this.highlightTimeout = setTimeout(() => {
+          this.updateState({
+            playerSequence: [color]
+          });
+          
+          setTimeout(() => {
+            this.updateState({ playerSequence: [] });
+            resolve(true);
+          }, 500);
+        }, 1000);
+      });
     }
 
-    this.updateState({ isShowingSequence: false });
-  }
-
-  private async highlightColor(color: string) {
-    // Simulating the highlight effect with a delay
-    return new Promise(resolve => {
-      setTimeout(resolve, 1000);
-    });
+    this.sequenceTimeout = setTimeout(() => {
+      this.updateState({ 
+        isShowingSequence: false,
+        playerSequence: []
+      });
+    }, 1000);
   }
 
   addPlayerInput(color: string) {
@@ -93,23 +141,30 @@ export class GameService {
 
   validateSequence() {
     const { sequence, playerSequence } = this.currentState;
-    
-    if (sequence.length !== playerSequence.length) {
-      return false;
-    }
-
     return sequence.every((color, index) => color === playerSequence[index]);
   }
 
   submitSequence() {
-    if (this.validateSequence()) {
+    if (
+      this.validateSequence() &&
+      this.currentState.playerSequence.length === this.currentState.sequence.length
+    ) {
+      const newLevel = this.currentState.level + 1;
+      const newColors = this.getColorsForLevel(newLevel);
+      const newSequence = [...this.currentState.sequence];
+      const randomIndex = Math.floor(Math.random() * newColors.length);
+      newSequence.push(newColors[randomIndex]);
+
       const newScore = this.calculateScore();
+
       this.updateState({
         score: newScore,
-        level: this.currentState.level + 1,
-        playerSequence: []
+        level: newLevel,
+        playerSequence: [],
+        sequence: newSequence,
+        availableColors: newColors,
       });
-      this.addColor();
+
       this.showSequence();
     } else {
       this.updateState({ gameOver: true });
@@ -117,12 +172,19 @@ export class GameService {
   }
 
   resetGame() {
+    if (this.sequenceTimeout) clearTimeout(this.sequenceTimeout);
+    if (this.highlightTimeout) clearTimeout(this.highlightTimeout);
     this.updateState(this.initialState);
   }
 
   private calculateScore(): number {
-    // Basic score calculation - can be made more complex
-    return this.currentState.score + (this.currentState.level * 100);
+    const baseScore = 100;
+    const timeBonus = Math.max(0, this.currentState.displayTime - 5000) / 1000;
+    return (
+      this.currentState.score +
+      baseScore * this.currentState.level +
+      Math.floor(timeBonus)
+    );
   }
 
   resetPlayerSequence() {

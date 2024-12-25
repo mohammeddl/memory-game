@@ -23,6 +23,7 @@ import { GameOverComponent } from '../game-over/game-over.component';
           [sequence]="gameState.sequence"
           [playerSequence]="gameState.playerSequence"
           [isShowingSequence]="gameState.isShowingSequence"
+          [availableColors]="gameState.availableColors"
           (colorClick)="onColorClick($event)">
         </app-interface>
 
