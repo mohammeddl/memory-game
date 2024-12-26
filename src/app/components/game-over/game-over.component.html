@@ -1,1 +1,8 @@
-<p>game-over works!</p>
+<div class="game-over-container" [@fadeIn]>
+  <h2>Game Over!</h2>
+  <div class="final-score">
+    <span>Score Final:</span>
+    <span class="score">{{ score }}</span>
+  </div>
+  <button class="restart-btn" (click)="onRestart()">Recommencer</button>
+</div>

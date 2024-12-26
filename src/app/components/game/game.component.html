@@ -1,1 +1,41 @@
-<p>game works!</p>
+<div class="game-container">
+  <div class="game-board" *ngIf="gameService.gameState$ | async as gameState">
+    <app-score [score]="gameState.score" [level]="gameState.level"></app-score>
+
+    <app-interface
+      [sequence]="gameState.sequence"
+      [playerSequence]="gameState.playerSequence"
+      [isShowingSequence]="gameState.isShowingSequence"
+      [availableColors]="gameState.availableColors"
+      (colorClick)="onColorClick($event)"
+    >
+    </app-interface>
+
+    <div class="controls" *ngIf="!gameState.gameOver">
+      <button
+        class="start-btn"
+        *ngIf="!gameState.isPlaying"
+        (click)="startGame()"
+      >
+        Commencer
+      </button>
+
+      <div
+        class="game-buttons"
+        *ngIf="gameState.isPlaying && !gameState.isShowingSequence"
+      >
+        <button class="validate-btn" (click)="submitSequence()">Valider</button>
+        <button class="reset-btn" (click)="resetSequence()">
+          Réinitialiser
+        </button>
+      </div>
+    </div>
+
+    <app-game-over
+      *ngIf="gameState.gameOver"
+      [score]="gameState.score"
+      (restart)="startGame()"
+    >
+    </app-game-over>
+  </div>
+</div>
