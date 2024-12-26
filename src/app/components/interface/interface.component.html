@@ -1,1 +1,31 @@
-<p>interface works!</p>
+<div class="interface-container">
+  <div class="colors-grid" [class]="getGridClass()">
+    <button
+      *ngFor="let color of availableColors"
+      class="color-button"
+      [style.background-color]="color"
+      [class.active]="isColorActive(color)"
+      [@highlight]="isColorActive(color) ? 'active' : 'inactive'"
+      (click)="onColorClick(color)"
+      [disabled]="isShowingSequence"
+    ></button>
+  </div>
+
+  <div class="sequence-display">
+    <div class="sequence-label">
+      Séquence actuelle: {{ sequence.length }} couleurs
+    </div>
+    <div class="sequence-progress">
+      <div
+        class="sequence-dot"
+        *ngFor="let color of sequence; let i = index"
+        [style.background-color]="
+          i < playerSequence.length ? playerSequence[i] : '#ddd'
+        "
+        [class.filled]="i < playerSequence.length"
+        [class.correct]="isCorrectAtIndex(i)"
+        [class.wrong]="isWrongAtIndex(i)"
+      ></div>
+    </div>
+  </div>
+</div>
